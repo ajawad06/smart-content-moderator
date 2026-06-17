@@ -6,6 +6,7 @@ import mongoose from 'mongoose';
 import { env } from './config/env';
 import { errorHandler, notFoundHandler } from './middleware/error';
 import authRoutes from './modules/auth/auth.routes';
+import policyRoutes from './modules/policies/policy.routes';
 
 export function createApp(): Express {
   const app = express();
@@ -34,8 +35,9 @@ export function createApp(): Express {
     });
   });
 
-  // Feature routers. More mounted in later phases (submissions, appeals, policies, analytics).
+  // Feature routers. More mounted in later phases (submissions, appeals, analytics).
   app.use('/api/auth', authRoutes);
+  app.use('/api/policies', policyRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

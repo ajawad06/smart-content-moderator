@@ -2,11 +2,13 @@ import { createApp } from './app';
 import { env } from './config/env';
 import { connectDB, disconnectDB } from './db/connect';
 import { seedAdmin } from './db/seed';
+import { seedDefaultPolicy } from './modules/policies/policy.service';
 import { logger } from './utils/logger';
 
 async function main(): Promise<void> {
   await connectDB();
   await seedAdmin();
+  await seedDefaultPolicy();
 
   const app = createApp();
   const server = app.listen(env.PORT, () => {

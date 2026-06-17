@@ -4,9 +4,9 @@ A full-stack platform where users submit images for automated, AI-powered policy
 screening across six moderation categories, with an appeals workflow, admin-configurable
 enforcement policies, and a platform analytics dashboard.
 
-> **Status:** Phase 2 — authentication. Project scaffold (Phase 1) plus JWT auth with `user`/`admin`
-> roles and a seeded admin account. Submissions, verdicts, appeals, policies, and analytics are
-> implemented in subsequent phases.
+> **Status:** Phase 3 — policy configuration. Scaffold (1) + JWT auth (2) + versioned, immutable
+> moderation policy config with per-category enable/threshold/enforcement controls. Submissions,
+> verdicts, appeals, and analytics are implemented in subsequent phases.
 
 ## Tech stack
 
@@ -107,6 +107,24 @@ All endpoints are under `/api`. Auth uses a JWT bearer token: `Authorization: Be
 A seeded admin account is created on first startup (default `admin@acm.local` / `admin12345`,
 configurable via `ADMIN_EMAIL` / `ADMIN_PASSWORD`). Passwords are bcrypt-hashed and never returned
 by the API.
+
+### Policies (`/api/policies`)
+
+Moderation policy is **versioned and immutable**: each admin change creates a new version; the
+active policy is the highest version. Existing verdicts reference the version active when they were
+created, so policy edits never apply retroactively.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET`   | `/active` | Bearer | The currently active policy version |
+| `GET`   | `/catalog` | Bearer | Category catalog (keys, labels, descriptions) |
+| `GET`   | `/` | Admin | Full version history (newest first) |
+| `GET`   | `/:version` | Bearer | A specific policy version |
+| `PATCH` | `/` | Admin | Apply per-category changes → creates a new version |
+
+Each category setting has `enabled` (disabled categories are skipped during screening), `threshold`
+(0–100%, detections below are inconclusive), and `enforcement` (`auto_block` or `flag_for_review`).
+A default version 1 (all categories enabled, threshold 70, flag-for-review) is seeded on startup.
 
 ## Architecture notes
 
