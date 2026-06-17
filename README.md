@@ -4,9 +4,9 @@ A full-stack platform where users submit images for automated, AI-powered policy
 screening across six moderation categories, with an appeals workflow, admin-configurable
 enforcement policies, and a platform analytics dashboard.
 
-> **Status:** Phase 4 — AI moderation engine. Scaffold (1) + JWT auth (2) + versioned policy (3) +
-> a pluggable moderation provider (mock / Claude vision) and a pure verdict-computation engine.
-> Submission upload, appeals, and analytics are implemented in subsequent phases.
+> **Status:** Phase 5 — submissions. Scaffold (1) + JWT auth (2) + versioned policy (3) + AI
+> moderation engine (4) + image upload, per-image verdicts, and filtered submission history (5).
+> Appeals and analytics are implemented in subsequent phases.
 
 ## Tech stack
 
@@ -125,6 +125,17 @@ created, so policy edits never apply retroactively.
 Each category setting has `enabled` (disabled categories are skipped during screening), `threshold`
 (0–100%, detections below are inconclusive), and `enforcement` (`auto_block` or `flag_for_review`).
 A default version 1 (all categories enabled, threshold 70, flag-for-review) is seeded on startup.
+
+### Submissions (`/api/submissions`)
+
+All require a bearer token. Each uploaded image is screened independently and gets its own verdict; the submission records an aggregate outcome (most severe across images) and snapshots the active policy version.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/` | `multipart/form-data` with 1–10 images under the `images` field (≤5 MB each, JPEG/PNG/GIF/WebP). Screens each, returns the submission + verdicts |
+| `GET`  | `/` | Current user's history. Filters: `outcome`, `category`, `from`, `to` (ISO dates); pagination via `page`, `limit` |
+| `GET`  | `/:id` | A submission with its per-image verdicts (category breakdowns). Owner or admin only |
+| `GET`  | `/:id/verdicts/:verdictId/image` | Raw image bytes. Owner or admin only |
 
 ## AI moderation
 
