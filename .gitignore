@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+# tsc -b composite artifacts emitted beside vite.config.ts
+frontend/vite.config.js
+frontend/vite.config.d.ts
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Claude Code local/runtime files (personal settings, locks)
+.claude/
+
+# Uploads (local dev image storage, if used)
+uploads/
