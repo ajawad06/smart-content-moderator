@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import mongoose from 'mongoose';
 import { env } from './config/env';
 import { errorHandler, notFoundHandler } from './middleware/error';
+import analyticsRoutes from './modules/analytics/analytics.routes';
 import appealRoutes from './modules/appeals/appeal.routes';
 import authRoutes from './modules/auth/auth.routes';
 import policyRoutes from './modules/policies/policy.routes';
@@ -37,11 +38,12 @@ export function createApp(): Express {
     });
   });
 
-  // Feature routers. More mounted in later phases (analytics).
+  // Feature routers.
   app.use('/api/auth', authRoutes);
   app.use('/api/policies', policyRoutes);
   app.use('/api/submissions', submissionRoutes);
   app.use('/api/appeals', appealRoutes);
+  app.use('/api/analytics', analyticsRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

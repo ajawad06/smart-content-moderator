@@ -4,10 +4,9 @@ A full-stack platform where users submit images for automated, AI-powered policy
 screening across six moderation categories, with an appeals workflow, admin-configurable
 enforcement policies, and a platform analytics dashboard.
 
-> **Status:** Phase 6 — appeals. Scaffold (1) + JWT auth (2) + versioned policy (3) + AI moderation
-> engine (4) + submissions/verdicts (5) + the appeal workflow (6): users appeal flagged/blocked
-> submissions, admins review a queue and accept/reject, and acceptance overrides verdicts to
-> Approved. The analytics dashboard is implemented in the final phase.
+> **Status:** Phase 7 — backend complete. Scaffold (1) + JWT auth (2) + versioned policy (3) + AI
+> moderation engine (4) + submissions/verdicts (5) + appeals (6) + the admin analytics dashboard
+> (7). The full REST API and data model are implemented; the React frontend is built next.
 
 ## Tech stack
 
@@ -150,6 +149,14 @@ A user may appeal a submission whose outcome is **Flagged** or **Blocked** (one 
 | `GET`   | `/mine` | Bearer | The current user's appeals (filters: `status`, `page`, `limit`) |
 | `GET`   | `/` | Admin | Review queue / all appeals (`status=pending` for the queue) |
 | `PATCH` | `/:id` | Admin | Resolve: `{ decision: "accept" \| "reject", response? }` |
+
+### Analytics (`/api/analytics`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/` | Admin | Platform-wide dashboard data (single payload) |
+
+Computed with MongoDB aggregation pipelines, the payload includes: `overview` totals; `submissionsOverTime` (daily volume); `submissionsByOutcome` and `verdictsByOutcome` (effective outcome — override wins); `verdictsByCategory` (violation detections per category); `appeals` (volume + resolution/acceptance rates + accepted/rejected breakdown); and `topUsersBySubmissions` / `topUsersByViolations` leaderboards.
 
 ## AI moderation
 
