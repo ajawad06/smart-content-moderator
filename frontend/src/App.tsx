@@ -1,51 +1,39 @@
-import { useQuery } from '@tanstack/react-query';
-import { api, type HealthResponse } from './lib/api';
-
-function StatusDot({ ok }: { ok: boolean }) {
-  return <span className={`inline-block h-2.5 w-2.5 rounded-full ${ok ? 'bg-green-500' : 'bg-red-500'}`} />;
-}
+import { Navigate, Route, Routes } from 'react-router-dom';
+import Layout from './components/Layout';
+import { RequireAdmin, RequireAuth } from './components/guards';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import SubmitPage from './pages/SubmitPage';
+import HistoryPage from './pages/HistoryPage';
+import SubmissionDetailPage from './pages/SubmissionDetailPage';
+import AppealsPage from './pages/AppealsPage';
+import AnalyticsPage from './pages/admin/AnalyticsPage';
+import AppealsQueuePage from './pages/admin/AppealsQueuePage';
+import PolicyPage from './pages/admin/PolicyPage';
 
 export default function App() {
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ['health'],
-    queryFn: async () => (await api.get<HealthResponse>('/health')).data,
-    refetchInterval: 10_000,
-  });
-
-  const apiOk = !isError && !!data;
-  const dbOk = data?.db === 'connected';
-
   return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 p-8">
-        <h1 className="text-2xl font-semibold tracking-tight">AI Content Moderation Platform</h1>
-        <p className="mt-1 text-sm text-slate-500">Phase 1 scaffold — backend &amp; frontend wired up.</p>
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
 
-        <div className="mt-6 space-y-3 text-sm">
-          <div className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3">
-            <span className="font-medium">API</span>
-            <span className="flex items-center gap-2">
-              <StatusDot ok={apiOk} />
-              {isLoading ? 'checking…' : apiOk ? 'reachable' : 'unreachable'}
-            </span>
-          </div>
-          <div className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3">
-            <span className="font-medium">Database</span>
-            <span className="flex items-center gap-2">
-              <StatusDot ok={dbOk} />
-              {data?.db ?? '—'}
-            </span>
-          </div>
-          <div className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3">
-            <span className="font-medium">Moderation provider</span>
-            <span className="font-mono text-slate-600">{data?.provider ?? '—'}</span>
-          </div>
-        </div>
+      <Route element={<RequireAuth />}>
+        <Route element={<Layout />}>
+          <Route index element={<Navigate to="/submit" replace />} />
+          <Route path="/submit" element={<SubmitPage />} />
+          <Route path="/history" element={<HistoryPage />} />
+          <Route path="/submissions/:id" element={<SubmissionDetailPage />} />
+          <Route path="/appeals" element={<AppealsPage />} />
 
-        <p className="mt-6 text-xs text-slate-400">
-          Auth, submissions, appeals, policies, and analytics arrive in later phases.
-        </p>
-      </div>
-    </div>
+          <Route element={<RequireAdmin />}>
+            <Route path="/admin/analytics" element={<AnalyticsPage />} />
+            <Route path="/admin/queue" element={<AppealsQueuePage />} />
+            <Route path="/admin/policy" element={<PolicyPage />} />
+          </Route>
+        </Route>
+      </Route>
+
+      <Route path="*" element={<Navigate to="/submit" replace />} />
+    </Routes>
   );
 }

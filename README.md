@@ -4,9 +4,10 @@ A full-stack platform where users submit images for automated, AI-powered policy
 screening across six moderation categories, with an appeals workflow, admin-configurable
 enforcement policies, and a platform analytics dashboard.
 
-> **Status:** Phase 7 — backend complete. Scaffold (1) + JWT auth (2) + versioned policy (3) + AI
-> moderation engine (4) + submissions/verdicts (5) + appeals (6) + the admin analytics dashboard
-> (7). The full REST API and data model are implemented; the React frontend is built next.
+> **Status:** Phase 8 — frontend complete. Full REST API (1–7) plus a React SPA covering auth,
+> image submission, filtered history, submission detail with per-category breakdown, the appeal
+> flow, and the admin policy editor / appeals queue / analytics dashboard. Final step is the
+> end-to-end Docker rebuild.
 
 ## Tech stack
 
@@ -18,6 +19,17 @@ enforcement policies, and a platform analytics dashboard.
 | Auth         | JWT (role-based: `user` / `admin`) |
 | AI moderation | Pluggable provider — `mock` (no key) or `claude` (Anthropic vision) |
 | Packaging    | Docker + docker-compose |
+
+## Frontend
+
+A React SPA ([`frontend/src`](frontend/src)) built with Vite, Tailwind, TanStack Query, and React Router:
+
+- **Auth** — register / login, JWT persisted to `localStorage`, session restored via `/auth/me`, role-aware nav, protected + admin-only routes.
+- **Submit** — multi-image upload with previews and inline per-image verdict results.
+- **History** — filterable, paginated table (outcome / category / date) with appeal status shown inline.
+- **Submission detail** — image (fetched with auth as a blob), full per-category breakdown, and the file/track-appeal flow.
+- **My appeals** — track status and admin responses.
+- **Admin** — policy editor (per-category enable/threshold/enforcement, saves a new version only when changed), appeals queue (accept/reject with response), and the analytics dashboard (stat cards + dependency-free bar charts).
 
 ## Project structure
 
