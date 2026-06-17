@@ -4,9 +4,9 @@ A full-stack platform where users submit images for automated, AI-powered policy
 screening across six moderation categories, with an appeals workflow, admin-configurable
 enforcement policies, and a platform analytics dashboard.
 
-> **Status:** Phase 3 — policy configuration. Scaffold (1) + JWT auth (2) + versioned, immutable
-> moderation policy config with per-category enable/threshold/enforcement controls. Submissions,
-> verdicts, appeals, and analytics are implemented in subsequent phases.
+> **Status:** Phase 4 — AI moderation engine. Scaffold (1) + JWT auth (2) + versioned policy (3) +
+> a pluggable moderation provider (mock / Claude vision) and a pure verdict-computation engine.
+> Submission upload, appeals, and analytics are implemented in subsequent phases.
 
 ## Tech stack
 
@@ -125,6 +125,15 @@ created, so policy edits never apply retroactively.
 Each category setting has `enabled` (disabled categories are skipped during screening), `threshold`
 (0–100%, detections below are inconclusive), and `enforcement` (`auto_block` or `flag_for_review`).
 A default version 1 (all categories enabled, threshold 70, flag-for-review) is seeded on startup.
+
+## AI moderation
+
+Moderation runs behind a provider interface ([`ModerationProvider`](backend/src/modules/moderation/provider.types.ts)) with two implementations, selected by `MODERATION_PROVIDER`:
+
+- **`mock`** (default) — deterministic, dependency-free classifier. The same image always yields the same result, so `docker-compose up` works with no API key. Most images come back clean; a deterministic minority are flagged. As a demo aid, a filename containing a category keyword (e.g. `violence.jpg`) forces a high-confidence detection.
+- **`claude`** — uses a Claude vision model (`claude-opus-4-8`) via the Anthropic API with structured JSON output. Requires `ANTHROPIC_API_KEY`.
+
+Providers only **classify** (confidence 0–100 + reasoning per category). A pure [verdict engine](backend/src/modules/moderation/verdict.ts) then applies the active policy: disabled categories are skipped, a detection counts only if `confidence >= threshold` (else inconclusive), and **Auto-Block > Flag-for-Review > Approved**. The engine also records the policy version it ran against, so verdicts can snapshot it.
 
 ## Architecture notes
 

@@ -51,6 +51,14 @@ export const ENFORCEMENT = {
 export const ENFORCEMENT_VALUES = Object.values(ENFORCEMENT);
 export type Enforcement = (typeof ENFORCEMENT_VALUES)[number];
 
+/** Per-category result in a verdict breakdown. */
+export const CLASSIFICATION = {
+  VIOLATION: 'violation', // confidence met or exceeded the threshold
+  INCONCLUSIVE: 'inconclusive', // below threshold; does not affect the verdict
+} as const;
+export const CLASSIFICATION_VALUES = Object.values(CLASSIFICATION);
+export type Classification = (typeof CLASSIFICATION_VALUES)[number];
+
 /** Overall submission/image outcome. */
 export const OUTCOME = {
   APPROVED: 'approved',
