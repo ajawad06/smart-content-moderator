@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { api, apiErrorMessage } from '../lib/api';
 import { categoryLabel } from '../lib/constants';
 import type { Submission, Verdict } from '../lib/types';
-import { Alert, Button, Card, OutcomeBadge } from '../components/ui';
+import { Alert, Button, Card, OutcomeBadge, PageHeader } from '../components/ui';
 
 interface SubmitResponse {
   submission: Submission;
@@ -35,26 +35,26 @@ export default function SubmitPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Submit images</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Each image is screened independently against the active moderation policy.
-        </p>
-      </div>
+      <PageHeader title="Submit images" subtitle="Each image is screened independently against the active moderation policy." />
 
       <Card>
         <form onSubmit={onSubmit} className="space-y-4">
           {error && <Alert>{error}</Alert>}
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/gif,image/webp"
-            multiple
-            onChange={(e) => {
-              setFiles(Array.from(e.target.files ?? []));
-              mutation.reset();
-            }}
-            className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-slate-700"
-          />
+          <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-8 text-center transition hover:border-sky-400 hover:bg-sky-50/50">
+            <span className="text-2xl">🖼️</span>
+            <span className="mt-2 text-sm font-medium text-slate-700">Click to choose images</span>
+            <span className="mt-0.5 text-xs text-slate-400">PNG, JPEG, GIF or WebP · up to 5 MB each · max 10</span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              multiple
+              onChange={(e) => {
+                setFiles(Array.from(e.target.files ?? []));
+                mutation.reset();
+              }}
+              className="hidden"
+            />
+          </label>
           {files.length > 0 && (
             <div className="flex flex-wrap gap-3">
               {files.map((f, i) => (

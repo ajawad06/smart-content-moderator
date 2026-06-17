@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { api, apiErrorMessage } from '../../lib/api';
 import { categoryLabel } from '../../lib/constants';
 import type { CategorySetting, PolicyConfig } from '../../lib/types';
-import { Alert, Button, Card, Select, Spinner } from '../../components/ui';
+import { Alert, Button, Card, PageHeader, Select, Spinner } from '../../components/ui';
 
 export default function PolicyPage() {
   const qc = useQueryClient();
@@ -55,14 +55,10 @@ export default function PolicyPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Policy configuration</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Active version <span className="font-medium">v{policy.version}</span>. Saving creates a new version; existing verdicts are unaffected.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Policy configuration"
+        subtitle={`Active version v${policy.version}. Saving creates a new version; existing verdicts are unaffected.`}
+      />
 
       {error && <Alert>{error}</Alert>}
       {saved && changed.length === 0 && <Alert kind="success">Policy saved as a new version.</Alert>}

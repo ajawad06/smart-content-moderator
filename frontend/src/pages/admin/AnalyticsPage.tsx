@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { categoryLabel, OUTCOME_LABELS } from '../../lib/constants';
 import type { Analytics } from '../../lib/types';
-import { Card, Spinner } from '../../components/ui';
+import { Card, PageHeader, Spinner } from '../../components/ui';
 
 const OUTCOME_BAR: Record<string, string> = {
   approved: 'bg-green-500',
@@ -23,11 +23,16 @@ function Bar({ label, value, max, color = 'bg-slate-800' }: { label: string; val
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value, icon, accent }: { label: string; value: number; icon: string; accent: string }) {
   return (
     <Card className="!p-4">
-      <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-slate-900">{value.toLocaleString()}</p>
+      <div className="flex items-center gap-3">
+        <span className={`flex h-10 w-10 items-center justify-center rounded-xl text-lg ${accent}`}>{icon}</span>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
+          <p className="text-2xl font-semibold leading-tight text-slate-900">{value.toLocaleString()}</p>
+        </div>
+      </div>
     </Card>
   );
 }
@@ -50,13 +55,13 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Analytics</h1>
+      <PageHeader title="Analytics" subtitle="Platform-wide moderation activity at a glance." />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label="Submissions" value={data.overview.totalSubmissions} />
-        <Stat label="Images screened" value={data.overview.totalImages} />
-        <Stat label="Appeals" value={data.overview.totalAppeals} />
-        <Stat label="Users" value={data.overview.totalUsers} />
+        <Stat label="Submissions" value={data.overview.totalSubmissions} icon="📦" accent="bg-sky-100" />
+        <Stat label="Images screened" value={data.overview.totalImages} icon="🖼️" accent="bg-indigo-100" />
+        <Stat label="Appeals" value={data.overview.totalAppeals} icon="⚖️" accent="bg-amber-100" />
+        <Stat label="Users" value={data.overview.totalUsers} icon="👥" accent="bg-emerald-100" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

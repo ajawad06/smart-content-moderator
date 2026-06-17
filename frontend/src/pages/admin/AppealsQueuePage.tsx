@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { api, apiErrorMessage } from '../../lib/api';
 import { APPEAL_STATUS_LABELS } from '../../lib/constants';
 import type { Appeal, Pagination, Submission } from '../../lib/types';
-import { Alert, Button, Card, OutcomeBadge, Select, Spinner, StatusBadge, Textarea } from '../../components/ui';
+import { Alert, Button, Card, OutcomeBadge, PageHeader, Select, Spinner, StatusBadge, Textarea } from '../../components/ui';
 
 export default function AppealsQueuePage() {
   const qc = useQueryClient();
@@ -34,15 +34,18 @@ export default function AppealsQueuePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Appeals queue</h1>
-        <Select value={status} onChange={(e) => setStatus(e.target.value)} className="w-48">
-          <option value="pending">Pending</option>
-          <option value="accepted">Accepted</option>
-          <option value="rejected">Rejected</option>
-          <option value="">All</option>
-        </Select>
-      </div>
+      <PageHeader
+        title="Appeals queue"
+        subtitle="Review disputed verdicts and accept or reject them."
+        actions={
+          <Select value={status} onChange={(e) => setStatus(e.target.value)} className="w-48">
+            <option value="pending">Pending</option>
+            <option value="accepted">Accepted</option>
+            <option value="rejected">Rejected</option>
+            <option value="">All</option>
+          </Select>
+        }
+      />
 
       {error && <Alert>{error}</Alert>}
 

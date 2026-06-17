@@ -12,7 +12,7 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 export function Button({ variant = 'primary', loading, className, children, disabled, ...rest }: ButtonProps) {
   const styles = {
-    primary: 'bg-slate-900 text-white hover:bg-slate-700',
+    primary: 'bg-gradient-to-r from-slate-900 to-slate-700 text-white shadow-sm hover:from-slate-800 hover:to-slate-600',
     secondary: 'bg-white text-slate-800 ring-1 ring-slate-300 hover:bg-slate-50',
     danger: 'bg-red-600 text-white hover:bg-red-500',
     ghost: 'text-slate-600 hover:bg-slate-100',
@@ -78,6 +78,18 @@ export function Field({ label, children, hint }: { label: string; children: Reac
       {children}
       {hint && <span className="mt-1 block text-xs text-slate-400">{hint}</span>}
     </label>
+  );
+}
+
+export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
+  return (
+    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{title}</h1>
+        {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
+      </div>
+      {actions && <div className="flex items-center gap-2">{actions}</div>}
+    </div>
   );
 }
 

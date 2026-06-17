@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { CATEGORY_KEYS, categoryLabel, OUTCOME_LABELS } from '../lib/constants';
 import type { Pagination, Submission } from '../lib/types';
-import { Button, Card, OutcomeBadge, Select, Spinner, StatusBadge } from '../components/ui';
+import { Button, Card, OutcomeBadge, PageHeader, Select, Spinner, StatusBadge } from '../components/ui';
 
 interface Filters {
   outcome: string;
@@ -44,7 +44,7 @@ export default function HistoryPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Submission history</h1>
+      <PageHeader title="Submission history" subtitle="Every image you've submitted and its verdict." />
 
       <Card className="!p-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">

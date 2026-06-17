@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { apiErrorMessage } from '../lib/api';
-import { Alert, Button, Card, Field, Input } from '../components/ui';
+import AuthLayout from '../components/AuthLayout';
+import { Alert, Button, Field, Input } from '../components/ui';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -27,24 +28,20 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <Card className="w-full max-w-sm">
-        <h1 className="text-xl font-semibold tracking-tight">Sign in</h1>
-        <p className="mt-1 text-sm text-slate-500">AI Content Moderation Platform</p>
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
-          {error && <Alert>{error}</Alert>}
-          <Field label="Email">
-            <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
-          </Field>
-          <Field label="Password">
-            <Input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
-          </Field>
-          <Button type="submit" loading={loading} className="w-full">Sign in</Button>
-        </form>
-        <p className="mt-4 text-center text-sm text-slate-500">
-          No account? <Link to="/register" className="font-medium text-slate-900 hover:underline">Create one</Link>
-        </p>
-      </Card>
-    </div>
+    <AuthLayout title="Welcome back" subtitle="Sign in to your moderation account">
+      <form onSubmit={onSubmit} className="space-y-4">
+        {error && <Alert>{error}</Alert>}
+        <Field label="Email">
+          <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="you@example.com" />
+        </Field>
+        <Field label="Password">
+          <Input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" placeholder="••••••••" />
+        </Field>
+        <Button type="submit" loading={loading} className="w-full">Sign in</Button>
+      </form>
+      <p className="mt-6 text-center text-sm text-slate-500">
+        No account? <Link to="/register" className="font-medium text-slate-900 hover:underline">Create one</Link>
+      </p>
+    </AuthLayout>
   );
 }

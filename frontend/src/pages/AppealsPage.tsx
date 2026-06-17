@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import type { Appeal, Pagination } from '../lib/types';
-import { Card, Spinner, StatusBadge } from '../components/ui';
+import { Card, PageHeader, Spinner, StatusBadge } from '../components/ui';
 
 export default function AppealsPage() {
   const { data, isLoading } = useQuery({
@@ -15,7 +15,7 @@ export default function AppealsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">My appeals</h1>
+      <PageHeader title="My appeals" subtitle="Track the status of verdicts you've disputed." />
       {isLoading ? (
         <div className="flex justify-center py-12"><Spinner className="h-6 w-6 text-slate-400" /></div>
       ) : appeals.length === 0 ? (
