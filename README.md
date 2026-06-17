@@ -4,9 +4,10 @@ A full-stack platform where users submit images for automated, AI-powered policy
 screening across six moderation categories, with an appeals workflow, admin-configurable
 enforcement policies, and a platform analytics dashboard.
 
-> **Status:** Phase 5 — submissions. Scaffold (1) + JWT auth (2) + versioned policy (3) + AI
-> moderation engine (4) + image upload, per-image verdicts, and filtered submission history (5).
-> Appeals and analytics are implemented in subsequent phases.
+> **Status:** Phase 6 — appeals. Scaffold (1) + JWT auth (2) + versioned policy (3) + AI moderation
+> engine (4) + submissions/verdicts (5) + the appeal workflow (6): users appeal flagged/blocked
+> submissions, admins review a queue and accept/reject, and acceptance overrides verdicts to
+> Approved. The analytics dashboard is implemented in the final phase.
 
 ## Tech stack
 
@@ -136,6 +137,19 @@ All require a bearer token. Each uploaded image is screened independently and ge
 | `GET`  | `/` | Current user's history. Filters: `outcome`, `category`, `from`, `to` (ISO dates); pagination via `page`, `limit` |
 | `GET`  | `/:id` | A submission with its per-image verdicts (category breakdowns). Owner or admin only |
 | `GET`  | `/:id/verdicts/:verdictId/image` | Raw image bytes. Owner or admin only |
+
+Submission `GET` responses include an `appeal` field (the appeal for that submission, or `null`) so the history can show appeal status directly.
+
+### Appeals (`/api/appeals`)
+
+A user may appeal a submission whose outcome is **Flagged** or **Blocked** (one appeal per submission, with a written justification). Appeals enter a pending queue visible only to admins. On **accept**, every non-approved verdict in the submission is overridden to Approved and the submission outcome becomes Approved (the original per-verdict outcome is preserved for audit). On **reject**, nothing changes.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `POST`  | `/` | Bearer | File an appeal `{ submissionId, justification }` |
+| `GET`   | `/mine` | Bearer | The current user's appeals (filters: `status`, `page`, `limit`) |
+| `GET`   | `/` | Admin | Review queue / all appeals (`status=pending` for the queue) |
+| `PATCH` | `/:id` | Admin | Resolve: `{ decision: "accept" \| "reject", response? }` |
 
 ## AI moderation
 
