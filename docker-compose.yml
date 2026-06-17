@@ -29,8 +29,8 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
       MODERATION_PROVIDER: ${MODERATION_PROVIDER:-mock}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-4-8}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-meta-llama/llama-4-scout-17b-16e-instruct}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@acm.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin12345}
     ports:

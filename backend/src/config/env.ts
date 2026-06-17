@@ -11,10 +11,10 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('7d'),
   CORS_ORIGIN: z.string().default('*'),
 
-  // Moderation provider: 'mock' runs with no external dependency; 'claude' calls the Anthropic API.
-  MODERATION_PROVIDER: z.enum(['mock', 'claude']).default('mock'),
-  ANTHROPIC_API_KEY: z.string().optional(),
-  ANTHROPIC_MODEL: z.string().default('claude-opus-4-8'),
+  // Moderation provider: 'mock' runs with no external dependency; 'groq' calls the Groq API.
+  MODERATION_PROVIDER: z.enum(['mock', 'groq']).default('mock'),
+  GROQ_API_KEY: z.string().optional(),
+  GROQ_MODEL: z.string().default('meta-llama/llama-4-scout-17b-16e-instruct'),
 
   // Seed admin: an admin account is created on startup if one does not already exist.
   ADMIN_EMAIL: z.string().email().default('admin@acm.local'),

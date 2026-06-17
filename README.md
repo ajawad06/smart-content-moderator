@@ -17,7 +17,7 @@ enforcement policies, and a platform analytics dashboard.
 | Backend      | Node.js + Express + TypeScript, Mongoose |
 | Database     | MongoDB |
 | Auth         | JWT (role-based: `user` / `admin`) |
-| AI moderation | Pluggable provider — `mock` (no key) or `claude` (Anthropic vision) |
+| AI moderation | Pluggable provider — `mock` (no key) or `groq` (Llama 4 vision) |
 | Packaging    | Docker + docker-compose |
 
 ## Frontend
@@ -92,9 +92,9 @@ npm run dev          # http://localhost:5173  (proxies /api to :4000)
 | `JWT_SECRET` | — (required, min 16 chars) | Token signing secret |
 | `JWT_EXPIRES_IN` | `7d` | Token lifetime |
 | `CORS_ORIGIN` | `*` | Allowed origins (comma-separated or `*`) |
-| `MODERATION_PROVIDER` | `mock` | `mock` or `claude` |
-| `ANTHROPIC_API_KEY` | — | Required only when provider is `claude` |
-| `ANTHROPIC_MODEL` | `claude-opus-4-8` | Vision model used by the `claude` provider |
+| `MODERATION_PROVIDER` | `mock` | `mock` or `groq` |
+| `GROQ_API_KEY` | — | Required only when provider is `groq` (free at console.groq.com) |
+| `GROQ_MODEL` | `meta-llama/llama-4-scout-17b-16e-instruct` | Vision model used by the `groq` provider |
 | `ADMIN_EMAIL` | `admin@acm.local` | Seeded admin account email |
 | `ADMIN_PASSWORD` | `admin12345` | Seeded admin account password |
 
@@ -175,7 +175,7 @@ Computed with MongoDB aggregation pipelines, the payload includes: `overview` to
 Moderation runs behind a provider interface ([`ModerationProvider`](backend/src/modules/moderation/provider.types.ts)) with two implementations, selected by `MODERATION_PROVIDER`:
 
 - **`mock`** (default) — deterministic, dependency-free classifier. The same image always yields the same result, so `docker-compose up` works with no API key. Most images come back clean; a deterministic minority are flagged. As a demo aid, a filename containing a category keyword (e.g. `violence.jpg`) forces a high-confidence detection.
-- **`claude`** — uses a Claude vision model (`claude-opus-4-8`) via the Anthropic API with structured JSON output. Requires `ANTHROPIC_API_KEY`.
+- **`groq`** — uses a Groq-hosted vision model (Llama 4, default `meta-llama/llama-4-scout-17b-16e-instruct`) via the Groq API with JSON-mode output. Requires `GROQ_API_KEY` (free tier at [console.groq.com](https://console.groq.com)).
 
 Providers only **classify** (confidence 0–100 + reasoning per category). A pure [verdict engine](backend/src/modules/moderation/verdict.ts) then applies the active policy: disabled categories are skipped, a detection counts only if `confidence >= threshold` (else inconclusive), and **Auto-Block > Flag-for-Review > Approved**. The engine also records the policy version it ran against, so verdicts can snapshot it.
 
@@ -185,7 +185,7 @@ Providers only **classify** (confidence 0–100 + reasoning per category). A pur
   directly — every read/write goes through the Express API.
 - **Pluggable AI moderation.** A provider interface lets the platform run fully offline with a
   deterministic `mock` classifier (so `docker-compose up` works with no API key), and switch to a
-  real Claude vision model by setting `MODERATION_PROVIDER=claude` + `ANTHROPIC_API_KEY`.
+  real Groq-hosted vision model by setting `MODERATION_PROVIDER=groq` + `GROQ_API_KEY`.
 - **Immutable verdicts (planned).** Each submission will snapshot the active policy configuration
   version, so later policy edits never retroactively change past verdicts.
 

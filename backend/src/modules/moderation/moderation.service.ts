@@ -2,7 +2,7 @@ import { CATEGORIES, type CategoryKey } from '../../constants/moderation';
 import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
 import { requireActivePolicy } from '../policies/policy.service';
-import { ClaudeModerationProvider } from './claude.provider';
+import { GroqModerationProvider } from './groq.provider';
 import { MockModerationProvider } from './mock.provider';
 import type { CategoryDescriptor, ModerationImageInput, ModerationProvider } from './provider.types';
 import { type ComputedVerdict, computeVerdict } from './verdict';
@@ -17,8 +17,8 @@ let provider: ModerationProvider | null = null;
 export function getModerationProvider(): ModerationProvider {
   if (provider) return provider;
   provider =
-    env.MODERATION_PROVIDER === 'claude'
-      ? new ClaudeModerationProvider()
+    env.MODERATION_PROVIDER === 'groq'
+      ? new GroqModerationProvider()
       : new MockModerationProvider();
   logger.info(`Moderation provider initialized: ${provider.name}`);
   return provider;

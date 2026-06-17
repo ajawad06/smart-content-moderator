@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import Groq from 'groq-sdk';
 import { env } from '../../config/env';
 import { ApiError } from '../../middleware/error';
 import { isCategoryKey } from '../../constants/moderation';
@@ -13,22 +13,20 @@ import type {
 const SUPPORTED_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
 type SupportedMediaType = (typeof SUPPORTED_MEDIA_TYPES)[number];
 
-/** Uses a Claude vision model to classify an image against each category. */
-export class ClaudeModerationProvider implements ModerationProvider {
-  readonly name = 'claude';
-  private client: Anthropic;
+/** Uses a Groq-hosted vision model (Llama 4) to classify an image against each category. */
+export class GroqModerationProvider implements ModerationProvider {
+  readonly name = 'groq';
+  private client: Groq;
 
   constructor() {
-    if (!env.ANTHROPIC_API_KEY) {
-      throw new Error('MODERATION_PROVIDER=claude requires ANTHROPIC_API_KEY to be set');
+    if (!env.GROQ_API_KEY) {
+      throw new Error('MODERATION_PROVIDER=groq requires GROQ_API_KEY to be set');
     }
-    this.client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+    this.client = new Groq({ apiKey: env.GROQ_API_KEY });
   }
 
   private buildPrompt(categories: CategoryDescriptor[]): string {
-    const list = categories
-      .map((c) => `- "${c.key}" (${c.label}): ${c.description}`)
-      .join('\n');
+    const list = categories.map((c) => `- "${c.key}" (${c.label}): ${c.description}`).join('\n');
     return [
       'You are a content moderation classifier. Analyze the image and assess it against EACH',
       'of the following policy categories. For every category return a confidence score from 0',
@@ -37,31 +35,10 @@ export class ClaudeModerationProvider implements ModerationProvider {
       'Categories:',
       list,
       '',
-      'Return one entry per category. Be objective and base scores only on what is visible.',
+      'Respond with ONLY a JSON object of the exact shape:',
+      '{"classifications":[{"category":"<key>","confidence":<0-100>,"reasoning":"<one sentence>"}]}',
+      'Include one entry per category. Base scores only on what is visible in the image.',
     ].join('\n');
-  }
-
-  private outputSchema(categoryKeys: string[]) {
-    return {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        classifications: {
-          type: 'array',
-          items: {
-            type: 'object',
-            additionalProperties: false,
-            properties: {
-              category: { type: 'string', enum: categoryKeys },
-              confidence: { type: 'integer' },
-              reasoning: { type: 'string' },
-            },
-            required: ['category', 'confidence', 'reasoning'],
-          },
-        },
-      },
-      required: ['classifications'],
-    };
   }
 
   async screen(
@@ -72,45 +49,34 @@ export class ClaudeModerationProvider implements ModerationProvider {
       throw new ApiError(400, `Unsupported image type for AI moderation: ${image.mimeType}`);
     }
 
-    let response;
+    let content: string | null;
     try {
-      response = await this.client.messages.create({
-        model: env.ANTHROPIC_MODEL,
-        max_tokens: 2048,
-        output_config: {
-          format: {
-            type: 'json_schema',
-            schema: this.outputSchema(categories.map((c) => c.key)),
-          },
-        },
+      const completion = await this.client.chat.completions.create({
+        model: env.GROQ_MODEL,
+        temperature: 0,
+        max_tokens: 1024,
+        response_format: { type: 'json_object' },
         messages: [
           {
             role: 'user',
             content: [
-              {
-                type: 'image',
-                source: {
-                  type: 'base64',
-                  media_type: image.mimeType as SupportedMediaType,
-                  data: image.base64,
-                },
-              },
               { type: 'text', text: this.buildPrompt(categories) },
+              {
+                type: 'image_url',
+                image_url: { url: `data:${image.mimeType};base64,${image.base64}` },
+              },
             ],
           },
         ],
-      } as Anthropic.MessageCreateParamsNonStreaming);
+      });
+      content = completion.choices[0]?.message?.content ?? null;
     } catch (err) {
-      logger.error('Claude moderation request failed', err);
+      logger.error('Groq moderation request failed', err);
       throw new ApiError(502, 'AI moderation provider request failed');
     }
 
-    const textBlock = response.content.find((b) => b.type === 'text');
-    if (!textBlock || textBlock.type !== 'text') {
-      throw new ApiError(502, 'AI moderation provider returned no content');
-    }
-
-    return this.parse(textBlock.text, categories);
+    if (!content) throw new ApiError(502, 'AI moderation provider returned no content');
+    return this.parse(content, categories);
   }
 
   /** Parses and normalizes the model's JSON, guaranteeing one entry per requested category. */
