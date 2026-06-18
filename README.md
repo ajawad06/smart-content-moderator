@@ -61,7 +61,10 @@ Then open:
 - Frontend: http://localhost:8080
 - API health: http://localhost:4000/api/health
 
-The frontend's status panel should show **API: reachable** and **Database: connected**.
+### Demo accounts
+
+- **Admin** — `admin@acm.local` / `admin12345` (seeded automatically on first startup). Use this to access the policy editor, appeals queue, and analytics dashboard. Override via `ADMIN_EMAIL` / `ADMIN_PASSWORD` for a real deployment.
+- **User** — click **Create one** on the login screen to self-register and test the submission/appeal flows.
 
 ## Local development (without Docker)
 
