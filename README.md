@@ -1,224 +1,236 @@
 # AI Content Moderation Platform
 
 A full-stack platform where users submit images for automated, AI-powered policy-compliance
-screening across six moderation categories, with an appeals workflow, admin-configurable
-enforcement policies, and a platform analytics dashboard.
+screening across six violation categories. It produces structured per-image verdicts, supports a
+fair appeal workflow, lets admins configure enforcement policy per category, and surfaces
+platform-wide analytics — all behind a single REST API with role-based access.
 
-> **Status:** Complete. Full REST API + MongoDB data model, a React SPA (auth, submissions,
-> filtered history, per-image verdict breakdowns, appeals, and the admin policy editor / appeals
-> queue / analytics dashboard), pluggable AI moderation (mock / Groq Llama 4 vision), and a
-> one-command Docker setup — verified end-to-end. Deploy configs for Vercel + Render included.
+## Live demo
+
+|                    | URL                                                     |
+| ------------------ | ------------------------------------------------------- |
+| **App (frontend)** | https://smart-content-moderator.vercel.app/             |
+| **API health**     | https://smart-content-moderator.onrender.com/api/health |
+
+**Demo accounts**
+
+- **Admin:** `admin@acm.local` / `admin12345` — full access (policy editor, appeals queue, analytics).
+- **User:** click **Create one** on the login screen to self-register and test submissions/appeals.
+
+> Hosted on free tiers (Vercel + Render + MongoDB Atlas). The backend **sleeps after ~15 min idle**,
+> so the first request may take ~30–50s to wake — subsequent requests are fast.
+
+## Features
+
+**Users**
+
+- Register / log in (JWT).
+- Submit one or more images in a single request; each is screened independently.
+- View full submission history with filters by **outcome**, **category**, and **date**.
+- Inspect any submission's per-image verdict: per-category classification, confidence, and reasoning.
+- File an appeal on a Flagged/Blocked submission and track its status (Pending / Accepted / Rejected).
+
+**Admins** (everything above, plus)
+
+- **Policy configuration** — per category: enable/disable, confidence threshold, and enforcement
+  (Auto-Block or Flag for Review). Changes are **versioned and immutable**.
+- **Appeals queue** — review pending appeals and accept (overrides the verdict to Approved) or reject.
+- **Analytics dashboard** — submission volume over time, verdict distribution by outcome and
+  category, appeal volume / resolution / acceptance rates, and user leaderboards.
+
+## Moderation categories
+
+Graphic Violence · Hate Symbols · Self-Harm · Extremist Propaganda · Weapons & Contraband ·
+Harassment & Humiliation. Each active category yields a classification, a confidence score, and a
+short reasoning string per image.
 
 ## Tech stack
 
-| Layer        | Technology |
-|--------------|------------|
-| Frontend     | React + TypeScript + Vite, Tailwind CSS, TanStack Query, React Router |
-| Backend      | Node.js + Express + TypeScript, Mongoose |
-| Database     | MongoDB |
-| Auth         | JWT (role-based: `user` / `admin`) |
-| AI moderation | Pluggable provider — `mock` (no key) or `groq` (Llama 4 vision) |
-| Packaging    | Docker + docker-compose |
+| Layer         | Technology                                                            |
+| ------------- | --------------------------------------------------------------------- |
+| Frontend      | React + TypeScript + Vite, Tailwind CSS, TanStack Query, React Router |
+| Backend       | Node.js + Express + TypeScript, Mongoose                              |
+| Database      | MongoDB                                                               |
+| Auth          | JWT, role-based (`user` / `admin`), bcrypt password hashing           |
+| AI moderation | Pluggable provider — `mock` (no key) or `groq` (Llama 4 vision)       |
+| Packaging     | Docker + Docker Compose                                               |
+| Hosting       | Vercel (frontend) · Render (backend) · MongoDB Atlas                  |
 
-## Frontend
+## Architecture & key decisions
 
-A React SPA ([`frontend/src`](frontend/src)) built with Vite, Tailwind, TanStack Query, and React Router:
+- **REST API is the only interface to the database.** The frontend never touches MongoDB directly —
+  every read/write goes through the Express API.
+- **Immutable, versioned policy.** Each admin change creates a _new_ policy version rather than
+  mutating the current one; the active policy is the highest version. Submissions snapshot the
+  version active at submission time, so editing policy never retroactively changes past verdicts.
+- **AI classifies; policy decides.** Providers only return confidence + reasoning per category. A
+  pure [verdict engine](backend/src/modules/moderation/verdict.ts) then applies the policy: disabled
+  categories are skipped, a detection counts only if `confidence >= threshold` (else inconclusive),
+  and **Auto-Block > Flag-for-Review > Approved**.
+- **Pluggable AI moderation.** A provider interface lets the platform run fully offline with a
+  deterministic `mock` classifier (so it works with no API key), or switch to a real Groq-hosted
+  vision model via `MODERATION_PROVIDER=groq` + `GROQ_API_KEY`.
+- **Appeals preserve an audit trail.** Accepting an appeal overrides verdicts to Approved while
+  keeping each verdict's original outcome on record.
 
-- **Auth** — register / login, JWT persisted to `localStorage`, session restored via `/auth/me`, role-aware nav, protected + admin-only routes.
-- **Submit** — multi-image upload with previews and inline per-image verdict results.
-- **History** — filterable, paginated table (outcome / category / date) with appeal status shown inline.
-- **Submission detail** — image (fetched with auth as a blob), full per-category breakdown, and the file/track-appeal flow.
-- **My appeals** — track status and admin responses.
-- **Admin** — policy editor (per-category enable/threshold/enforcement, saves a new version only when changed), appeals queue (accept/reject with response), and the analytics dashboard (stat cards + dependency-free bar charts).
+## Data model (MongoDB)
+
+| Collection      | Purpose                                                                                            |
+| --------------- | -------------------------------------------------------------------------------------------------- |
+| `users`         | Accounts with role (`user` / `admin`); bcrypt-hashed passwords.                                    |
+| `policyconfigs` | Versioned policy; each version holds per-category `{ enabled, threshold, enforcement }`.           |
+| `submissions`   | One per upload request: owner, snapshotted policy version, aggregate outcome, violated categories. |
+| `verdicts`      | One per image: stored image, outcome + override, per-category breakdown, policy version, provider. |
+| `appeals`       | One per submission: justification, status, admin response, resolver.                               |
 
 ## Project structure
 
 ```
 .
-├── backend/            # Express REST API (sole interface to MongoDB)
+├── backend/                  # Express REST API (sole interface to MongoDB)
 │   └── src/
-│       ├── config/     # env validation (zod)
-│       ├── db/         # Mongoose connection
-│       ├── middleware/ # error handling (more later)
-│       └── utils/      # logger
-├── frontend/           # React SPA (Vite dev server / nginx in prod)
+│       ├── config/           # env validation (zod)
+│       ├── constants/        # moderation categories, outcomes, enforcement
+│       ├── db/               # Mongoose connection + startup seeding
+│       ├── middleware/       # auth (JWT/role), validation, error handling
+│       ├── models/           # User, PolicyConfig, Submission, Verdict, Appeal
+│       ├── modules/          # feature modules: auth, policies, moderation,
+│       │                     #   submissions, appeals, analytics
+│       └── utils/            # logger, jwt, asyncHandler
+├── frontend/                 # React SPA (Vite dev server / nginx in prod)
 │   └── src/
-├── docker-compose.yml  # mongo + backend + frontend
-└── .env.example        # root env for compose
+│       ├── auth/             # auth context
+│       ├── components/       # UI primitives, layout, guards
+│       ├── lib/              # API client, types, constants
+│       └── pages/            # routes (+ pages/admin)
+├── docker-compose.yml        # mongo + backend + frontend
+├── render.yaml               # backend deploy blueprint (Render)
+└── frontend/vercel.json      # frontend deploy config (Vercel)
 ```
 
 ## Quick start (Docker — recommended)
 
-Requires Docker + Docker Compose.
+Requires Docker + Docker Compose. No API key needed — it runs with the `mock` provider by default.
 
 ```bash
-cp .env.example .env        # optional: adjust secrets / AI provider
-docker-compose up --build
+docker compose up --build
 ```
 
 Then open:
 
-- Frontend: http://localhost:8080
-- API health: http://localhost:4000/api/health
+- **Frontend:** http://localhost:8080
+- **API health:** http://localhost:4000/api/health
 
-### Demo accounts
+Log in with the demo admin (`admin@acm.local` / `admin12345`) or register a user.
 
-- **Admin** — `admin@acm.local` / `admin12345` (seeded automatically on first startup). Use this to access the policy editor, appeals queue, and analytics dashboard. Override via `ADMIN_EMAIL` / `ADMIN_PASSWORD` for a real deployment.
-- **User** — click **Create one** on the login screen to self-register and test the submission/appeal flows.
+To use real AI locally, create a root `.env` (see `.env.example`) with `MODERATION_PROVIDER=groq`
+and a `GROQ_API_KEY` from [console.groq.com](https://console.groq.com).
 
 ## Local development (without Docker)
 
-You need a local MongoDB on `mongodb://localhost:27017` (or point `MONGO_URI` elsewhere).
+Requires a local MongoDB on `mongodb://localhost:27017` (or point `MONGO_URI` elsewhere).
 
 ```bash
-# Backend
-cd backend
-cp .env.example .env
-npm install
-npm run dev          # http://localhost:4000
+# Backend  (terminal 1)
+cd backend && cp .env.example .env && npm install && npm run dev   # http://localhost:4000
 
-# Frontend (separate terminal)
-cd frontend
-npm install
-npm run dev          # http://localhost:5173  (proxies /api to :4000)
+# Frontend (terminal 2)
+cd frontend && npm install && npm run dev                          # http://localhost:5173
 ```
 
-## Deployment (Vercel + Render)
-
-The frontend deploys to **Vercel** (static SPA) and the backend to **Render** (Node web service), with **MongoDB Atlas** as the database. In a split deploy the two live on different domains, so the frontend calls the backend's absolute URL via `VITE_API_URL` and the backend allows the frontend origin via `CORS_ORIGIN`.
-
-### 1. Database — MongoDB Atlas
-Create a free cluster, add a database user, allow network access (`0.0.0.0/0` for a demo), and copy the `mongodb+srv://…` connection string.
-
-### 2. Backend — Render
-Either use the included [`render.yaml`](render.yaml) (Render → New → **Blueprint**) or create a **Web Service** manually with:
-- **Root Directory:** `backend`
-- **Build Command:** `npm install && npm run build`
-- **Start Command:** `npm start`
-- **Health Check Path:** `/api/health`
-- **Environment variables:** `MONGO_URI` (the Atlas string), `JWT_SECRET` (long random), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `CORS_ORIGIN` (your Vercel URL, or `*`), `NODE_ENV=production`. The blueprint sets `MODERATION_PROVIDER=groq`, so add your `GROQ_API_KEY` (free at [console.groq.com](https://console.groq.com)). Render injects `PORT` automatically.
-
-Note your backend URL, e.g. `https://acm-backend.onrender.com`.
-
-### 3. Frontend — Vercel
-Import the repo and set:
-- **Root Directory:** `frontend` (Vite is auto-detected; [`vercel.json`](frontend/vercel.json) handles the SPA fallback)
-- **Environment variable:** `VITE_API_URL` = `https://acm-backend.onrender.com/api` (your Render URL + `/api`)
-
-Deploy. Then set the backend's `CORS_ORIGIN` to the resulting Vercel URL (or leave `*`) and you're live.
-
-> Render's free tier sleeps on inactivity, so the first request after idle takes a few seconds to wake the backend.
+The Vite dev server proxies `/api` to the backend, so no extra config is needed.
 
 ## Environment variables
 
 ### Backend (`backend/.env`)
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `NODE_ENV` | `development` | Runtime mode |
-| `PORT` | `4000` | API port |
-| `MONGO_URI` | `mongodb://localhost:27017/acm` | MongoDB connection string |
-| `JWT_SECRET` | — (required, min 16 chars) | Token signing secret |
-| `JWT_EXPIRES_IN` | `7d` | Token lifetime |
-| `CORS_ORIGIN` | `*` | Allowed origins (comma-separated or `*`) |
-| `MODERATION_PROVIDER` | `mock` | `mock` or `groq` |
-| `GROQ_API_KEY` | — | Required only when provider is `groq` (free at console.groq.com) |
-| `GROQ_MODEL` | `meta-llama/llama-4-scout-17b-16e-instruct` | Vision model used by the `groq` provider |
-| `ADMIN_EMAIL` | `admin@acm.local` | Seeded admin account email |
-| `ADMIN_PASSWORD` | `admin12345` | Seeded admin account password |
+| Variable              | Default                                     | Description                               |
+| --------------------- | ------------------------------------------- | ----------------------------------------- |
+| `NODE_ENV`            | `development`                               | Runtime mode                              |
+| `PORT`                | `4000`                                      | API port (Render injects its own)         |
+| `MONGO_URI`           | `mongodb://localhost:27017/acm`             | MongoDB connection string                 |
+| `JWT_SECRET`          | — (required, min 16 chars)                  | Token signing secret                      |
+| `JWT_EXPIRES_IN`      | `7d`                                        | Token lifetime                            |
+| `CORS_ORIGIN`         | `*`                                         | Allowed origins (comma-separated, or `*`) |
+| `MODERATION_PROVIDER` | `mock`                                      | `mock` or `groq`                          |
+| `GROQ_API_KEY`        | —                                           | Required only when provider is `groq`     |
+| `GROQ_MODEL`          | `meta-llama/llama-4-scout-17b-16e-instruct` | Vision model for the `groq` provider      |
+| `ADMIN_EMAIL`         | `admin@acm.local`                           | Seeded admin email                        |
+| `ADMIN_PASSWORD`      | `admin12345`                                | Seeded admin password                     |
 
 ### Frontend (`frontend/.env`)
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `VITE_PROXY_TARGET` | `http://localhost:4000` | Dev-server proxy target for `/api` |
+| Variable            | Default                 | Description                                                   |
+| ------------------- | ----------------------- | ------------------------------------------------------------- |
+| `VITE_PROXY_TARGET` | `http://localhost:4000` | Dev-server proxy target for `/api`                            |
+| `VITE_API_URL`      | —                       | Absolute backend URL for split deploys (e.g. `https://…/api`) |
 
-## API
+## API reference
 
-All endpoints are under `/api`. Auth uses a JWT bearer token: `Authorization: Bearer <token>`.
+All endpoints are under `/api`. Authenticated requests send `Authorization: Bearer <token>`.
+Passwords are bcrypt-hashed and never returned.
 
 ### Auth (`/api/auth`)
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `POST` | `/register` | — | Create a user account; returns `{ token, user }` |
-| `POST` | `/login` | — | Authenticate; returns `{ token, user }` |
-| `GET`  | `/me` | Bearer | Return the current user |
-
-A seeded admin account is created on first startup (default `admin@acm.local` / `admin12345`,
-configurable via `ADMIN_EMAIL` / `ADMIN_PASSWORD`). Passwords are bcrypt-hashed and never returned
-by the API.
+| Method | Path        | Auth   | Description                              |
+| ------ | ----------- | ------ | ---------------------------------------- |
+| `POST` | `/register` | —      | Create a user; returns `{ token, user }` |
+| `POST` | `/login`    | —      | Authenticate; returns `{ token, user }`  |
+| `GET`  | `/me`       | Bearer | Current user                             |
 
 ### Policies (`/api/policies`)
 
-Moderation policy is **versioned and immutable**: each admin change creates a new version; the
-active policy is the highest version. Existing verdicts reference the version active when they were
-created, so policy edits never apply retroactively.
-
+Versioned & immutable — each change creates a new version; the active policy is the highest version.
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET`   | `/active` | Bearer | The currently active policy version |
-| `GET`   | `/catalog` | Bearer | Category catalog (keys, labels, descriptions) |
-| `GET`   | `/` | Admin | Full version history (newest first) |
-| `GET`   | `/:version` | Bearer | A specific policy version |
-| `PATCH` | `/` | Admin | Apply per-category changes → creates a new version |
-
-Each category setting has `enabled` (disabled categories are skipped during screening), `threshold`
-(0–100%, detections below are inconclusive), and `enforcement` (`auto_block` or `flag_for_review`).
-A default version 1 (all categories enabled, threshold 70, flag-for-review) is seeded on startup.
+| `GET` | `/active` | Bearer | Active policy version |
+| `GET` | `/catalog` | Bearer | Category catalog (keys, labels, descriptions) |
+| `GET` | `/` | Admin | Full version history |
+| `GET` | `/:version` | Bearer | A specific version |
+| `PATCH` | `/` | Admin | Apply per-category changes → new version |
 
 ### Submissions (`/api/submissions`)
 
-All require a bearer token. Each uploaded image is screened independently and gets its own verdict; the submission records an aggregate outcome (most severe across images) and snapshots the active policy version.
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/` | `multipart/form-data` with 1–10 images under the `images` field (≤5 MB each, JPEG/PNG/GIF/WebP). Screens each, returns the submission + verdicts |
-| `GET`  | `/` | Current user's history. Filters: `outcome`, `category`, `from`, `to` (ISO dates); pagination via `page`, `limit` |
-| `GET`  | `/:id` | A submission with its per-image verdicts (category breakdowns). Owner or admin only |
-| `GET`  | `/:id/verdicts/:verdictId/image` | Raw image bytes. Owner or admin only |
-
-Submission `GET` responses include an `appeal` field (the appeal for that submission, or `null`) so the history can show appeal status directly.
+| Method | Path                             | Auth        | Description                                                                      |
+| ------ | -------------------------------- | ----------- | -------------------------------------------------------------------------------- |
+| `POST` | `/`                              | Bearer      | `multipart/form-data`, 1–10 images under `images` (≤5 MB, JPEG/PNG/GIF/WebP)     |
+| `GET`  | `/`                              | Bearer      | History; filters `outcome`, `category`, `from`, `to`; pagination `page`, `limit` |
+| `GET`  | `/:id`                           | Owner/Admin | Submission + per-image verdicts (+ appeal)                                       |
+| `GET`  | `/:id/verdicts/:verdictId/image` | Owner/Admin | Raw image bytes                                                                  |
 
 ### Appeals (`/api/appeals`)
 
-A user may appeal a submission whose outcome is **Flagged** or **Blocked** (one appeal per submission, with a written justification). Appeals enter a pending queue visible only to admins. On **accept**, every non-approved verdict in the submission is overridden to Approved and the submission outcome becomes Approved (the original per-verdict outcome is preserved for audit). On **reject**, nothing changes.
-
+Appealable only when the submission is Flagged or Blocked (one appeal per submission). Acceptance
+overrides the verdicts to Approved (originals preserved); rejection changes nothing.
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `POST`  | `/` | Bearer | File an appeal `{ submissionId, justification }` |
-| `GET`   | `/mine` | Bearer | The current user's appeals (filters: `status`, `page`, `limit`) |
-| `GET`   | `/` | Admin | Review queue / all appeals (`status=pending` for the queue) |
-| `PATCH` | `/:id` | Admin | Resolve: `{ decision: "accept" \| "reject", response? }` |
+| `POST` | `/` | Bearer | File `{ submissionId, justification }` |
+| `GET` | `/mine` | Bearer | Current user's appeals (filters: `status`, `page`, `limit`) |
+| `GET` | `/` | Admin | Queue / all appeals (`status=pending` for the queue) |
+| `PATCH` | `/:id` | Admin | Resolve `{ decision: "accept" \| "reject", response? }` |
 
 ### Analytics (`/api/analytics`)
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `GET` | `/` | Admin | Platform-wide dashboard data (single payload) |
+| Method | Path | Auth  | Description                                                                 |
+| ------ | ---- | ----- | --------------------------------------------------------------------------- |
+| `GET`  | `/`  | Admin | Platform dashboard data (single payload, via MongoDB aggregation pipelines) |
 
-Computed with MongoDB aggregation pipelines, the payload includes: `overview` totals; `submissionsOverTime` (daily volume); `submissionsByOutcome` and `verdictsByOutcome` (effective outcome — override wins); `verdictsByCategory` (violation detections per category); `appeals` (volume + resolution/acceptance rates + accepted/rejected breakdown); and `topUsersBySubmissions` / `topUsersByViolations` leaderboards.
+### Health (`/api/health`)
 
-## AI moderation
+Returns process uptime, MongoDB connection state, and the active moderation provider.
 
-Moderation runs behind a provider interface ([`ModerationProvider`](backend/src/modules/moderation/provider.types.ts)) with two implementations, selected by `MODERATION_PROVIDER`:
+## Deployment (Vercel + Render)
 
-- **`mock`** (default) — deterministic, dependency-free classifier. The same image always yields the same result, so `docker-compose up` works with no API key. Most images come back clean; a deterministic minority are flagged. As a demo aid, a filename containing a category keyword (e.g. `violence.jpg`) forces a high-confidence detection.
-- **`groq`** — uses a Groq-hosted vision model (Llama 4, default `meta-llama/llama-4-scout-17b-16e-instruct`) via the Groq API with JSON-mode output. Requires `GROQ_API_KEY` (free tier at [console.groq.com](https://console.groq.com)).
+The frontend deploys to **Vercel** (static SPA), the backend to **Render** (Node web service), with
+**MongoDB Atlas** as the database. Because the two live on different domains, the frontend calls the
+backend's absolute URL via `VITE_API_URL`, and the backend allows the frontend origin via `CORS_ORIGIN`.
 
-Providers only **classify** (confidence 0–100 + reasoning per category). A pure [verdict engine](backend/src/modules/moderation/verdict.ts) then applies the active policy: disabled categories are skipped, a detection counts only if `confidence >= threshold` (else inconclusive), and **Auto-Block > Flag-for-Review > Approved**. The engine also records the policy version it ran against, so verdicts can snapshot it.
-
-## Architecture notes
-
-- **REST API is the only interface to the database.** The frontend never talks to MongoDB
-  directly — every read/write goes through the Express API.
-- **Pluggable AI moderation.** A provider interface lets the platform run fully offline with a
-  deterministic `mock` classifier (so `docker-compose up` works with no API key), and switch to a
-  real Groq-hosted vision model by setting `MODERATION_PROVIDER=groq` + `GROQ_API_KEY`.
-- **Immutable verdicts (planned).** Each submission will snapshot the active policy configuration
-  version, so later policy edits never retroactively change past verdicts.
-
-## Health check
-
-`GET /api/health` returns process uptime, MongoDB connection state, and the active moderation
-provider — used by the frontend status panel to reflect real system state.
+1. **MongoDB Atlas** — create a free cluster, add a DB user, allow network access (`0.0.0.0/0`), and
+   copy the `mongodb+srv://…/acm` connection string.
+2. **Render (backend)** — use [`render.yaml`](render.yaml) (New → Blueprint) or a Web Service with
+   root `backend`, build `npm install && npm run build`, start `npm start`, health check
+   `/api/health`. Set `MONGO_URI`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `CORS_ORIGIN`,
+   `MODERATION_PROVIDER=groq`, `GROQ_API_KEY`. Render injects `PORT`.
+3. **Vercel (frontend)** — import the repo, set **Root Directory = `frontend`**, and add
+   `VITE_API_URL = https://<your-render-url>/api`. Deploy, then point Render's `CORS_ORIGIN` at the
+   resulting Vercel URL (or leave `*`).
