@@ -4,10 +4,10 @@ A full-stack platform where users submit images for automated, AI-powered policy
 screening across six moderation categories, with an appeals workflow, admin-configurable
 enforcement policies, and a platform analytics dashboard.
 
-> **Status:** Phase 8 — frontend complete. Full REST API (1–7) plus a React SPA covering auth,
-> image submission, filtered history, submission detail with per-category breakdown, the appeal
-> flow, and the admin policy editor / appeals queue / analytics dashboard. Final step is the
-> end-to-end Docker rebuild.
+> **Status:** Complete. Full REST API + MongoDB data model, a React SPA (auth, submissions,
+> filtered history, per-image verdict breakdowns, appeals, and the admin policy editor / appeals
+> queue / analytics dashboard), pluggable AI moderation (mock / Groq Llama 4 vision), and a
+> one-command Docker setup — verified end-to-end. Deploy configs for Vercel + Render included.
 
 ## Tech stack
 
@@ -82,6 +82,32 @@ cd frontend
 npm install
 npm run dev          # http://localhost:5173  (proxies /api to :4000)
 ```
+
+## Deployment (Vercel + Render)
+
+The frontend deploys to **Vercel** (static SPA) and the backend to **Render** (Node web service), with **MongoDB Atlas** as the database. In a split deploy the two live on different domains, so the frontend calls the backend's absolute URL via `VITE_API_URL` and the backend allows the frontend origin via `CORS_ORIGIN`.
+
+### 1. Database — MongoDB Atlas
+Create a free cluster, add a database user, allow network access (`0.0.0.0/0` for a demo), and copy the `mongodb+srv://…` connection string.
+
+### 2. Backend — Render
+Either use the included [`render.yaml`](render.yaml) (Render → New → **Blueprint**) or create a **Web Service** manually with:
+- **Root Directory:** `backend`
+- **Build Command:** `npm install && npm run build`
+- **Start Command:** `npm start`
+- **Health Check Path:** `/api/health`
+- **Environment variables:** `MONGO_URI` (the Atlas string), `JWT_SECRET` (long random), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `CORS_ORIGIN` (your Vercel URL, or `*`), `NODE_ENV=production`. The blueprint sets `MODERATION_PROVIDER=groq`, so add your `GROQ_API_KEY` (free at [console.groq.com](https://console.groq.com)). Render injects `PORT` automatically.
+
+Note your backend URL, e.g. `https://acm-backend.onrender.com`.
+
+### 3. Frontend — Vercel
+Import the repo and set:
+- **Root Directory:** `frontend` (Vite is auto-detected; [`vercel.json`](frontend/vercel.json) handles the SPA fallback)
+- **Environment variable:** `VITE_API_URL` = `https://acm-backend.onrender.com/api` (your Render URL + `/api`)
+
+Deploy. Then set the backend's `CORS_ORIGIN` to the resulting Vercel URL (or leave `*`) and you're live.
+
+> Render's free tier sleeps on inactivity, so the first request after idle takes a few seconds to wake the backend.
 
 ## Environment variables
 

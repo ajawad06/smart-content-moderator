@@ -8,8 +8,10 @@ export const tokenStore = {
   clear: () => localStorage.removeItem(TOKEN_KEY),
 };
 
-// All requests go through /api; Vite proxies to the backend in dev, nginx proxies in prod.
-export const api = axios.create({ baseURL: '/api' });
+// In dev/Docker the frontend and API share an origin, so the relative "/api" is proxied
+// (Vite dev server / nginx). On a split deploy (Vercel + Render) set VITE_API_URL to the
+// backend's absolute URL, e.g. https://acm-backend.onrender.com/api.
+export const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '/api' });
 
 // Attach the bearer token to every request.
 api.interceptors.request.use((config) => {
